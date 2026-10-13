@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warung Sejahtera - Kasir</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: #fafafa;
+      color: #222;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    header {
+      background: #1f6f43;
+      color: #fff;
+      padding: 18px 16px;
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header p { font-size: 13px; margin-top: 2px; }
+
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 20px 16px 40px;
+    }
+
+    section {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #eee;
+    }
+
+    /* ---------- Daftar barang ---------- */
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 8px 6px;
+      text-align: left;
+      font-size: 14px;
+      border-bottom: 1px solid #eee;
+    }
+    th { font-weight: 600; color: #555; background: #f5f5f5; }
+    td.angka, th.angka { text-align: right; white-space: nowrap; }
+    td.qty { text-align: center; }
+    input[type="number"] {
+      width: 80px;
+      padding: 6px 8px;
+      border: 1px solid #bbb;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
+      color: #222;
+    }
+
+    /* ---------- Pembayaran ---------- */
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .baris-form { margin-bottom: 14px; }
+    .judul-kedua { margin-top: 18px; }
+    button {
+      padding: 10px 18px;
+      border: 1px solid #1f6f43;
+      background: #1f6f43;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    button:hover { background: #1a5c38; }
+
+    /* ---------- Pesan & struk ---------- */
+    .pesan {
+      padding: 10px 12px;
+      border: 1px solid #ccc;
+      background: #f5f5f5;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    .pesan.error { border-color: #e0a0a0; background: #fdf1f1; color: #a02020; }
+
+    .struk {
+      border: 1px dashed #999;
+      padding: 14px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      background: #fff;
+    }
+    .struk h3 { text-align: center; font-size: 14px; letter-spacing: 1px; }
+    .struk .sub { text-align: center; color: #666; font-size: 12px; margin: 4px 0 12px; }
+    .baris { display: flex; justify-content: space-between; gap: 12px; padding: 2px 0; }
+    .baris .kanan { text-align: right; white-space: nowrap; }
+    .garis { border-top: 1px dashed #999; margin: 8px 0; }
+    .baris.total, .baris.kembalian { font-weight: 700; }
+    .baris.kembalian { font-size: 15px; }
+    .kembalian.negatif { color: #a02020; }
+    .status { font-weight: 700; }
+    .status.cukup { color: #1f6f43; }
+    .status.kurang { color: #a02020; }
+
+    .catatan {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid #ccc;
+      background: #f5f5f5;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+    }
+    .catatan a { color: #1f6f43; }
+
+    footer {
+      text-align: center;
+      color: #888;
+      font-size: 12px;
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Warung Sejahtera</h1>
+  <p>Kasir sederhana berbasis Camunda BPM</p>
+</header>
+
+<main>
+
+  <div th:if="${error}" class="pesan error" th:text="${error}"></div>
+
+  <section>
+    <h2>1. Pilih Barang</h2>
+    <form method="post" th:action="@{/warung}">
+      <table>
+        <thead>
+          <tr>
+            <th>Barang</th>
+            <th class="angka">Harga</th>
+            <th class="qty">Jumlah</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="b : ${katalog}">
+            <td th:text="${b.emoji + ' ' + b.nama}"></td>
+            <td class="angka" th:text="${T(com.uts.adse.hellocamunda.Rupiah).format(b.harga)}"></td>
+            <td class="qty">
+              <input type="number" min="0" step="1"
+                     th:name="'qty_' + ${b.kode}"
+                     th:value="${qtyLama != null ? qtyLama[b.kode] : ''}">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2 class="judul-kedua">2. Pembayaran</h2>
+      <div class="baris-form">
+        <label for="bayar">Jumlah uang dibayarkan</label>
+        <input type="number" id="bayar" name="bayar" min="0" step="500"
+               th:value="${bayarLama != null ? bayarLama : ''}">
+      </div>
+      <button type="submit">Proses Pembayaran</button>
+    </form>
+  </section>
+
+  <section th:if="${struk}">
+    <h2>3. Struk Pembayaran</h2>
+    <div class="struk">
+      <h3>WARUNG SEJAHTERA</h3>
+      <div class="sub">Jl. Merdeka No. 1 &bull; Terima kasih</div>
+
+      <div class="baris" th:each="d : ${struk.detail}">
+        <span th:text="${d.nama}"></span>
+        <span class="kanan"
+              th:text="${d.qty + ' x ' + T(com.uts.adse.hellocamunda.Rupiah).format(d.harga)
+                       + ' = ' + T(com.uts.adse.hellocamunda.Rupiah).format(d.subtotal)}"></span>
+      </div>
+
+      <div class="garis"></div>
+      <div class="baris total">
+        <span>TOTAL</span>
+        <span th:text="${T(com.uts.adse.hellocamunda.Rupiah).format(struk.total)}"></span>
+      </div>
+      <div class="baris">
+        <span>BAYAR</span>
+        <span th:text="${T(com.uts.adse.hellocamunda.Rupiah).format(struk.bayar)}"></span>
+      </div>
+      <div class="baris kembalian">
+        <span>KEMBALIAN</span>
+        <span th:class="${'kembalian' + (struk.kembalian &lt; 0 ? ' negatif' : '')}"
+              th:text="${T(com.uts.adse.hellocamunda.Rupiah).format(struk.kembalian)}"></span>
+      </div>
+      <div class="garis"></div>
+      <div class="baris">
+        <span>STATUS</span>
+        <span class="status"
+              th:class="${'status ' + (struk.status == 'CUKUP' ? 'cukup' : 'kurang')}"
+              th:text="${struk.status}"></span>
+      </div>
+      <div class="baris">
+        <span>ID PROSES</span>
+        <span class="kanan" th:text="${struk.processInstanceId}"></span>
+      </div>
+    </div>
+
+    <div class="catatan" th:if="${struk.status == 'CUKUP'}">
+      Pembayaran cukup. Proses Camunda berhenti di task <b th:text="${struk.task}"></b>.
+      Buka <a th:href="@{/camunda/app/tasklist}" href="/camunda/app/tasklist">Camunda Tasklist</a>
+      (login demo/demo) lalu klik <b>Complete</b> untuk menyelesaikan transaksi.
+    </div>
+    <div class="catatan" th:unless="${struk.status == 'CUKUP'}">
+      Uang kurang <span th:text="${T(com.uts.adse.hellocamunda.Rupiah).format(struk.kembalian * -1)}"></span>.
+      Transaksi dibatalkan oleh proses Camunda.
+    </div>
+  </section>
+
+</main>
+
+<footer>UTS ADSE &bull; Camunda Platform 7.21 + Spring Boot 3.2</footer>
+
+</body>
+</html>

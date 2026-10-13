@@ -21,7 +21,7 @@ Tidak seperti aplikasi kasir biasa, seluruh **logika bisnis perhitungan** pada a
 
 | Fitur | Keterangan |
 |---|---|
-| 🛒 **Pilih Barang** | Katalog 8 barang warung (mie instan, kopi, teh, roti, air mineral, snack, cokelat) dengan tombol tambah/kurang jumlah |
+| 🛒 **Pilih Barang** | Katalog 8 barang warung (mie instan, kopi, teh, roti, air mineral, snack, cokelat) dengan input jumlah per barang |
 | 🧮 **Hitung Total** | Total belanja dihitung otomatis oleh *service task* Camunda (`HitungTotalDelegate`) |
 | 💵 **Hitung Kembalian** | Kembalian = uang bayar − total belanja, dihitung oleh *service task* Camunda (`HitungKembalianDelegate`) |
 | 🧾 **Cetak Struk** | Struk pembayaran digital berisi rincian item, total, bayar, kembalian, dan status |
@@ -36,6 +36,7 @@ Tidak seperti aplikasi kasir biasa, seluruh **logika bisnis perhitungan** pada a
 |---|---|---|
 | Java | 17 | Bahasa pemrograman utama |
 | Spring Boot | 3.2.5 | Framework aplikasi web |
+| Spring MVC + Thymeleaf | (dari Spring Boot BOM) | Render halaman kasir di sisi server (tanpa JavaScript) |
 | Camunda BPM Platform | 7.21.0 | Process engine & workflow orchestration |
 | Camunda Spring Boot Starter (Webapp) | 7.21.0 | Camunda Webapp (Cockpit, Tasklist, Admin) |
 | H2 Database | (dari Spring Boot BOM) | Database in-memory untuk Camunda |
@@ -91,7 +92,7 @@ Proses Camunda pada aplikasi ini memiliki key **`ProsesWarung`** dengan nama **"
 
 | Elemen | Tipe | Keterangan |
 |---|---|---|
-| **Mulai Transaksi** | Start Event | Titik awal proses, dipicu dari `WarungController` via `runtimeService.startProcessInstanceByKey("ProsesWarung", variables)` |
+| **Mulai Transaksi** | Start Event | Titik awal proses, dipicu dari `WarungPageController` via `runtimeService.startProcessInstanceByKey("ProsesWarung", variables)` |
 | **Hitung Total Belanja** | Service Task | Dijalankan otomatis oleh class Java `HitungTotalDelegate`. Membaca variabel `daftarPesanan` (map kode barang → qty), mengalikan dengan harga dari `KatalogWarung`, lalu menyimpan hasilnya ke variabel `totalBelanja` |
 | **Hitung Kembalian** | Service Task | Dijalankan otomatis oleh class Java `HitungKembalianDelegate`. Menghitung `kembalian = jumlahBayar − totalBelanja` dan menentukan `statusPembayaran` (`CUKUP` / `KURANG`) |
 | **Pembayaran Cukup?** | Exclusive Gateway | Percabangan kondisi:<br>• **Cukup** → jika `${kembalian >= 0}`<br>• **Kurang** → jika `${kembalian < 0}` |
@@ -103,8 +104,8 @@ Proses Camunda pada aplikasi ini memiliki key **`ProsesWarung`** dengan nama **"
 
 | Variabel | Tipe | Dibuat oleh | Keterangan |
 |---|---|---|---|
-| `daftarPesanan` | `Map<String,Integer>` | `WarungController` | Map kode barang → jumlah beli, dikirim dari halaman kasir |
-| `jumlahBayar` | `Long` | `WarungController` | Uang yang dibayarkan pelanggan |
+| `daftarPesanan` | `Map<String,Integer>` | `WarungPageController` | Map kode barang → jumlah beli, dikirim dari halaman kasir |
+| `jumlahBayar` | `Long` | `WarungPageController` | Uang yang dibayarkan pelanggan |
 | `totalBelanja` | `Long` | `HitungTotalDelegate` | Total harga seluruh barang |
 | `kembalian` | `Long` | `HitungKembalianDelegate` | `jumlahBayar − totalBelanja` (negatif jika uang kurang) |
 | `statusPembayaran` | `String` | `HitungKembalianDelegate` | `"CUKUP"` atau `"KURANG"` |
@@ -129,16 +130,17 @@ hellocamunda/
 │   │   │   ├── ServletInitializer.java      # Konfigurasi deploy sebagai WAR (bawaan)
 │   │   │   ├── Barang.java                  # Record data barang (kode, nama, harga, emoji)
 │   │   │   ├── KatalogWarung.java           # Daftar 8 barang warung (hardcoded) + helper cari
-│   │   │   ├── PesananRequest.java          # Record request dari halaman kasir (items + bayar)
-│   │   │   ├── WarungController.java        # REST API: /api/warung/katalog & /api/warung/hitung
+│   │   │   ├── Rupiah.java                  # Helper format rupiah (3500 -> "Rp 3.500")
+│   │   │   ├── Struk.java                   # Record isi struk (detail, total, bayar, kembalian, status)
+│   │   │   ├── WarungPageController.java    # Halaman kasir: GET /warung & POST /warung (Thymeleaf)
 │   │   │   └── delegate/
 │   │   │       ├── HitungTotalDelegate.java      # Service Task 1: hitung total belanja
 │   │   │       └── HitungKembalianDelegate.java  # Service Task 2: hitung kembalian
 │   │   └── resources/
 │   │       ├── application.yaml             # Konfigurasi port, database H2, user Camunda
 │   │       ├── proses_warung.bpmn           # ⭐ Diagram BPMN "ProsesWarung"
-│   │       └── static/
-│   │           └── warung.html              # Halaman kasir (HTML + CSS + JavaScript)
+│   │       └── templates/
+│   │           └── warung.html              # Halaman kasir (HTML + CSS, dirender Thymeleaf)
 │   └── test/
 │       └── java/com/uts/adse/hellocamunda/
 │           └── HellocamundaApplicationTests.java  # Test context load Spring Boot
@@ -156,19 +158,20 @@ Implementasi `JavaDelegate` Camunda. Dipanggil otomatis oleh engine saat mencapa
 #### 3. `delegate/HitungKembalianDelegate.java` — Logika Hitung Kembalian
 Implementasi `JavaDelegate`. Menghitung selisih antara `jumlahBayar` dan `totalBelanja`, lalu menyimpan `kembalian` dan `statusPembayaran` (`CUKUP`/`KURANG`) sebagai variabel proses untuk dievaluasi oleh gateway.
 
-#### 4. `WarungController.java` — REST API Kasir
-- `GET /api/warung/katalog` → mengembalikan daftar barang (JSON) untuk dirender di halaman kasir
-- `POST /api/warung/hitung` → memvalidasi pesanan, **menjalankan proses Camunda `ProsesWarung`**, membaca variabel hasil perhitungan (via HistoryService), lalu mengembalikan data struk (total, bayar, kembalian, status, nama task)
+#### 4. `WarungPageController.java` — Halaman Kasir
+- `GET /warung` (dan `/`) → menampilkan halaman kasir berisi katalog barang
+- `POST /warung` → membaca form HTML (`qty_<KODE>` + `bayar`), memvalidasi pesanan, **menjalankan proses Camunda `ProsesWarung`**, membaca variabel hasil perhitungan (via HistoryService), lalu redirect kembali ke `/warung` dengan data struk
+- Halaman dirender oleh Thymeleaf di server, sehingga **tidak ada JavaScript sama sekali** di sisi browser
 
 #### 5. `KatalogWarung.java` — Data Barang
 Menyimpan 8 barang warung beserta harga dan emoji:
 Indomie Goreng (Rp 3.500), Kopi Good Day (Rp 2.000), Teh Pucuk (Rp 4.000), Roti Tawar (Rp 12.000), Air Mineral 600ml (Rp 3.000), Chitato Sapi (Rp 10.000), SilverQueen (Rp 15.000), Beng-Beng (Rp 2.500).
 
-#### 6. `static/warung.html` — Halaman Kasir
-Halaman tunggal (vanilla HTML/CSS/JavaScript, tanpa framework) dengan 3 bagian:
-1. **Pilih Barang** — kartu katalog dengan stepper jumlah
-2. **Pembayaran** — input uang + tombol cepat (Uang Pas, Rp 20.000, Rp 50.000, Rp 100.000)
-3. **Struk Pembayaran** — hasil perhitungan dari proses Camunda
+#### 6. `templates/warung.html` — Halaman Kasir
+Halaman tunggal (HTML + CSS biasa, tanpa framework, **tanpa JavaScript**) yang dirender oleh Thymeleaf. Isinya 3 bagian:
+1. **Pilih Barang** — tabel katalog dengan kolom input jumlah
+2. **Pembayaran** — input uang + tombol "Proses Pembayaran" (submit form POST)
+3. **Struk Pembayaran** — hanya tampil setelah form dikirim; berisi hasil perhitungan dari proses Camunda
 
 #### 7. `application.yaml` — Konfigurasi
 ```yaml
@@ -211,8 +214,8 @@ Tunggu sampai muncul log `Started HellocamundaApplication`, lalu buka browser:
 
 | URL | Halaman |
 |---|---|
-| `http://localhost:8080/warung.html` | **Halaman kasir** (utama) |
-| `http://localhost:8080/` | Redirect ke Camunda Webapp |
+| `http://localhost:8080/warung` | **Halaman kasir** (utama) |
+| `http://localhost:8080/` | Halaman kasir (sama dengan `/warung`) |
 | `http://localhost:8080/camunda/app/cockpit` | Camunda Cockpit (lihat proses & instance) |
 | `http://localhost:8080/camunda/app/tasklist` | Camunda Tasklist (task "Cetak Struk") |
 | `http://localhost:8080/camunda/app/admin` | Camunda Admin (manajemen user) |
@@ -230,15 +233,16 @@ Tunggu sampai muncul log `Started HellocamundaApplication`, lalu buka browser:
 
 **Penjelasan tampilan pada gambar:**
 
-1. **Bagian 1 — Pilih Barang**: grid 8 kartu barang. Pada contoh, **Air Mineral 600ml (Rp 3.000)** dipilih dengan jumlah **1** (kartu berubah jadi kuning/aktif).
-2. **Bagian 2 — Pembayaran**: input diisi **30.000**, tersedia tombol cepat (*Uang Pas, Rp 20.000, Rp 50.000, Rp 100.000*). Kotak kuning menampilkan **Total belanja Rp 3.000** secara live. Tombol oranye **"Proses Pembayaran"** menjalankan proses Camunda.
+1. **Bagian 1 — Pilih Barang**: tabel 8 barang (nama + harga + kolom jumlah). Pada contoh diisi **Indomie Goreng = 2** dan **Air Mineral 600ml = 1**.
+2. **Bagian 2 — Pembayaran**: input **Jumlah uang dibayarkan** diisi **30000**, lalu tombol **"Proses Pembayaran"** (submit form) menjalankan proses Camunda. Setelah halaman dimuat ulang, isi form tetap tersimpan.
 3. **Bagian 3 — Struk Pembayaran**: struk digital menampilkan:
-   - Rincian: `Air Mineral 600ml — 1 x Rp 3.000 = Rp 3.000`
-   - **TOTAL: Rp 3.000**
+   - Rincian: `Indomie Goreng — 2 x Rp 3.500 = Rp 7.000`, `Air Mineral 600ml — 1 x Rp 3.000 = Rp 3.000`
+   - **TOTAL: Rp 10.000**
    - **BAYAR: Rp 30.000**
-   - **KEMBALIAN: Rp 27.000** (hijau = uang cukup)
-   - **STATUS: CUKUP** (badge hijau)
-   - Catatan biru: *"Pembayaran cukup. Proses Camunda berhenti di task 'Cetak Struk'. Buka Camunda Tasklist (login demo/demo) lalu klik Complete untuk menyelesaikan transaksi."*
+   - **KEMBALIAN: Rp 20.000** (hijau = uang cukup)
+   - **STATUS: CUKUP** (hijau)
+   - **ID PROSES**: id instance Camunda yang baru dijalankan
+   - Catatan: *"Pembayaran cukup. Proses Camunda berhenti di task 'Cetak Struk'. Buka Camunda Tasklist (login demo/demo) lalu klik Complete untuk menyelesaikan transaksi."**
 
 ### 2. Output Console (Log Camunda)
 
@@ -251,42 +255,33 @@ Saat transaksi diproses, kedua *JavaDelegate* mencetak log perhitungannya:
 
 Log ini membuktikan bahwa perhitungan benar-benar dijalankan di dalam **Camunda Process Engine**, bukan di controller.
 
-### 3. Contoh Response API
+### 3. Contoh Data Form (POST)
 
-**Request** (`POST /api/warung/hitung`):
-```json
-{
-  "items": { "MIE": 2, "KOPI": 1 },
-  "bayar": 50000
-}
+**Request** (`POST /warung`, `application/x-www-form-urlencoded`):
+```
+qty_MIE=2&qty_KOPI=1&qty_TEH=0&qty_ROTI=0&qty_AIR=0&qty_CHIT=0&qty_SQ=0&qty_BB=0&bayar=50000
 ```
 
-**Response** (pembayaran cukup):
-```json
-{
-  "processInstanceId": "5991af1f-c6c6-11f1-95c1-00155d026d92",
-  "detail": [
-    { "nama": "Indomie Goreng", "qty": 2, "harga": 3500, "subtotal": 7000 },
-    { "nama": "Kopi Good Day",  "qty": 1, "harga": 2000, "subtotal": 2000 }
-  ],
-  "total": 9000,
-  "bayar": 50000,
-  "kembalian": 41000,
-  "status": "CUKUP",
-  "task": "Cetak Struk"
-}
+**Hasil di halaman** (pembayaran cukup):
+```
+Indomie Goreng          2 x Rp 3.500 = Rp 7.000
+Kopi Good Day           1 x Rp 2.000 = Rp 2.000
+-----------------------------------------
+TOTAL                                  Rp 9.000
+BAYAR                                  Rp 50.000
+KEMBALIAN                              Rp 41.000
+STATUS                                 CUKUP
 ```
 
-**Response** (uang kurang):
-```json
-{
-  "detail": [ { "nama": "SilverQueen", "qty": 1, "harga": 15000, "subtotal": 15000 } ],
-  "total": 15000,
-  "bayar": 5000,
-  "kembalian": -10000,
-  "status": "KURANG",
-  "task": null
-}
+**Hasil di halaman** (uang kurang):
+```
+SilverQueen             1 x Rp 15.000 = Rp 15.000
+-----------------------------------------
+TOTAL                                  Rp 15.000
+BAYAR                                  Rp 5.000
+KEMBALIAN                              Rp -10.000
+STATUS                                 KURANG
+-> "Uang kurang Rp 10.000. Transaksi dibatalkan oleh proses Camunda."
 ```
 
 ### 4. Camunda Cockpit & Tasklist
@@ -297,12 +292,12 @@ Log ini membuktikan bahwa perhitungan benar-benar dijalankan di dalam **Camunda 
 
 ---
 
-## 🔌 API Endpoints
+## 🔌 Endpoint Halaman
 
 | Method | Endpoint | Deskripsi |
 |---|---|---|
-| `GET` | `/api/warung/katalog` | Daftar semua barang (`kode`, `nama`, `harga`, `emoji`) |
-| `POST` | `/api/warung/hitung` | Jalankan proses Camunda; body: `{ "items": {"KODE": qty}, "bayar": number }` |
+| `GET` | `/warung` (juga `/`) | Tampilkan halaman kasir (katalog + struk bila ada) |
+| `POST` | `/warung` | Proses pembayaran; form field: `qty_<KODE>` (per barang) dan `bayar` |
 
 ---
 
@@ -313,7 +308,7 @@ Log ini membuktikan bahwa perhitungan benar-benar dijalankan di dalam **Camunda 
 | Uang cukup | Indomie x2 + Kopi x1 | Rp 9.000 | Rp 50.000 | **Rp 41.000** | CUKUP | Task "Cetak Struk" muncul ✅ |
 | Uang pas | Air Mineral x1 | Rp 3.000 | Rp 3.000 | **Rp 0** | CUKUP | Task "Cetak Struk" muncul ✅ |
 | Uang kurang | SilverQueen x1 | Rp 15.000 | Rp 5.000 | **−Rp 10.000** | KURANG | Proses dibatalkan ✅ |
-| Tanpa barang | — | — | — | — | Error 400 | `"Pilih minimal satu barang dulu!"` ✅ |
+| Tanpa barang | — | — | — | — | Pesan error | `"Pilih minimal satu barang dulu!"` ✅ |
 
 ---
 
@@ -321,6 +316,7 @@ Log ini membuktikan bahwa perhitungan benar-benar dijalankan di dalam **Camunda 
 
 - Project ini dibuat untuk memenuhi **UTS mata kuliah ADVSWE** dengan topik Camunda BPM.
 - Database menggunakan **H2 in-memory**, sehingga data proses hilang setiap aplikasi di-restart (cukup untuk keperluan demo/UTS).
+- Halaman kasir dirender penuh oleh **Java (Spring MVC + Thymeleaf)** — file `templates/warung.html` hanya berisi HTML + CSS, **tanpa JavaScript**.
 - Diagram BPMN dapat diedit kembali di [Camunda Modeler](https://camunda.com/download/modeler/) lalu file `.bpmn`-nya diganti.
 
 ## 👤 Author
