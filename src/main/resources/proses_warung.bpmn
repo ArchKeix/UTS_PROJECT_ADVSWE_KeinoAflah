@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:camunda="http://camunda.org/schema/1.0/bpmn"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_Warung" targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:process id="ProsesWarung" name="Proses Transaksi Warung" isExecutable="true" camunda:historyTimeToLive="7">
+    <bpmn:startEvent id="StartEvent_1" name="Mulai Transaksi">
+      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="Task_Total" name="Hitung Total Belanja" camunda:class="com.uts.adse.hellocamunda.delegate.HitungTotalDelegate">
+      <bpmn:incoming>Flow_1</bpmn:incoming>
+      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="Task_Kembalian" name="Hitung Kembalian" camunda:class="com.uts.adse.hellocamunda.delegate.HitungKembalianDelegate">
+      <bpmn:incoming>Flow_2</bpmn:incoming>
+      <bpmn:outgoing>Flow_3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_Cukup" name="Pembayaran Cukup?">
+      <bpmn:incoming>Flow_3</bpmn:incoming>
+      <bpmn:outgoing>Flow_Cukup</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Kurang</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:userTask id="Task_Struk" name="Cetak Struk" camunda:assignee="demo">
+      <bpmn:incoming>Flow_Cukup</bpmn:incoming>
+      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="End_Selesai" name="Transaksi Selesai">
+      <bpmn:incoming>Flow_4</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="End_Batal" name="Transaksi Dibatalkan - Uang Kurang">
+      <bpmn:incoming>Flow_Kurang</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_Total" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Total" targetRef="Task_Kembalian" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_Kembalian" targetRef="Gateway_Cukup" />
+    <bpmn:sequenceFlow id="Flow_Cukup" name="Cukup" sourceRef="Gateway_Cukup" targetRef="Task_Struk">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${kembalian &gt;= 0}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Kurang" name="Kurang" sourceRef="Gateway_Cukup" targetRef="End_Batal">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${kembalian &lt; 0}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_Struk" targetRef="End_Selesai" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_Warung">
+    <bpmndi:BPMNPlane id="BPMNPlane_Warung" bpmnElement="ProsesWarung">
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="150" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Total_di" bpmnElement="Task_Total">
+        <dc:Bounds x="230" y="100" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Kembalian_di" bpmnElement="Task_Kembalian">
+        <dc:Bounds x="400" y="100" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Cukup_di" bpmnElement="Gateway_Cukup">
+        <dc:Bounds x="570" y="115" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Struk_di" bpmnElement="Task_Struk">
+        <dc:Bounds x="680" y="100" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Selesai_di" bpmnElement="End_Selesai">
+        <dc:Bounds x="850" y="120" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="End_Batal_di" bpmnElement="End_Batal">
+        <dc:Bounds x="680" y="300" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="186" y="138" />
+        <di:waypoint x="230" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="340" y="140" />
+        <di:waypoint x="400" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+        <di:waypoint x="510" y="140" />
+        <di:waypoint x="570" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Cukup_di" bpmnElement="Flow_Cukup">
+        <di:waypoint x="620" y="140" />
+        <di:waypoint x="680" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
+        <di:waypoint x="790" y="140" />
+        <di:waypoint x="850" y="138" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_Kurang_di" bpmnElement="Flow_Kurang">
+        <di:waypoint x="595" y="165" />
+        <di:waypoint x="595" y="318" />
+        <di:waypoint x="680" y="318" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

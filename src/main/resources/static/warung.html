@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Warung Sejahtera - Kasir</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      min-height: 100vh;
+    }
+
+    /* ---------- Header ---------- */
+    header {
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      color: #fff;
+      padding: 28px 20px;
+      text-align: center;
+    }
+    header h1 { font-size: 30px; letter-spacing: -0.5px; }
+    header p { margin-top: 6px; font-size: 14px; opacity: 0.9; }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+      display: grid;
+      gap: 20px;
+    }
+
+    section {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+
+    h2 {
+      font-size: 17px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    h2 .langkah {
+      background: #fef3c7;
+      color: #b45309;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    /* ---------- Katalog barang ---------- */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .barang {
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .barang:hover { border-color: #fbbf24; }
+    .barang.aktif { border-color: #f59e0b; background: #fffbeb; }
+    .barang .emoji { font-size: 34px; }
+    .barang .nama { font-weight: 600; font-size: 14px; margin-top: 6px; }
+    .barang .harga { color: #64748b; font-size: 13px; margin-top: 2px; }
+
+    .stepper {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .stepper button {
+      width: 28px; height: 28px;
+      border: none;
+      border-radius: 8px;
+      background: #f59e0b;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .stepper button:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .stepper .qty { font-weight: 700; min-width: 20px; }
+
+    /* ---------- Pembayaran ---------- */
+    label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 8px; }
+    .input-uang {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 18px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      outline: none;
+    }
+    .input-uang:focus { border-color: #f59e0b; }
+    .cepat {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .cepat button {
+      padding: 7px 14px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 999px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .cepat button:hover { border-color: #f59e0b; color: #b45309; }
+
+    .btn-proses {
+      margin-top: 18px;
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-proses:disabled { background: #cbd5e1; cursor: not-allowed; }
+
+    .info-total {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: #fffbeb;
+      border: 1px dashed #fbbf24;
+      border-radius: 10px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .info-total b { color: #b45309; }
+
+    /* ---------- Struk ---------- */
+    .struk {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 20px;
+      font-family: 'Consolas', monospace;
+      font-size: 14px;
+    }
+    .struk h3 { text-align: center; font-size: 16px; letter-spacing: 1px; }
+    .struk .sub { text-align: center; color: #64748b; font-size: 12px; margin: 4px 0 14px; }
+    .baris { display: flex; justify-content: space-between; padding: 4px 0; }
+    .baris .kanan { text-align: right; white-space: nowrap; }
+    .garis { border-top: 1px dashed #cbd5e1; margin: 10px 0; }
+    .baris.total { font-weight: 700; font-size: 16px; }
+    .baris.kembalian { font-weight: 700; font-size: 20px; }
+    .kembalian-nilai.positif { color: #16a34a; }
+    .kembalian-nilai.negatif { color: #dc2626; }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: system-ui, sans-serif;
+    }
+    .badge.cukup { background: #dcfce7; color: #15803d; }
+    .badge.kurang { background: #fee2e2; color: #b91c1c; }
+
+    .catatan {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      line-height: 1.5;
+    }
+    .catatan.task { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .catatan.error { background: #fee2e2; border: 1px solid #fecaca; color: #b91c1c; }
+    .catatan a { color: #1d4ed8; font-weight: 600; }
+
+    .sembunyi { display: none; }
+
+    footer {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏪 Warung Sejahtera</h1>
+  <p>Kasir sederhana berbasis Camunda BPM</p>
+</header>
+
+<main>
+  <!-- 1. Pilih barang -->
+  <section>
+    <h2><span class="langkah">1</span> Pilih Barang</h2>
+    <div id="daftar-barang" class="grid"></div>
+  </section>
+
+  <!-- 2. Pembayaran -->
+  <section>
+    <h2><span class="langkah">2</span> Pembayaran</h2>
+    <label for="bayar">Jumlah uang dibayarkan</label>
+    <input id="bayar" class="input-uang" type="number" min="0" step="500" placeholder="0">
+    <div class="cepat">
+      <button onclick="setUang('pas')">Uang Pas</button>
+      <button onclick="setUang(20000)">Rp 20.000</button>
+      <button onclick="setUang(50000)">Rp 50.000</button>
+      <button onclick="setUang(100000)">Rp 100.000</button>
+    </div>
+    <div class="info-total">
+      <span>Total belanja</span>
+      <b id="total-sementara">Rp 0</b>
+    </div>
+    <button id="btn-proses" class="btn-proses" onclick="proses()" disabled>
+      Proses Pembayaran
+    </button>
+  </section>
+
+  <!-- 3. Struk -->
+  <section id="panel-hasil" class="sembunyi">
+    <h2><span class="langkah">3</span> Struk Pembayaran</h2>
+    <div id="struk" class="struk"></div>
+    <div id="catatan"></div>
+  </section>
+</main>
+
+<footer>UTS ADSE • Camunda Platform 7.21 + Spring Boot 3.2</footer>
+
+<script>
+  const rupiah = n => 'Rp ' + Number(n).toLocaleString('id-ID');
+  let katalog = [];
+  const qty = {};
+
+  // --- muat katalog barang dari API ---
+  fetch('/api/warung/katalog')
+    .then(r => r.json())
+    .then(data => { katalog = data; renderBarang(); })
+    .catch(() => document.getElementById('daftar-barang').innerHTML =
+      '<p>Gagal memuat katalog.</p>');
+
+  function renderBarang() {
+    const el = document.getElementById('daftar-barang');
+    el.innerHTML = '';
+    katalog.forEach(b => {
+      qty[b.kode] = 0;
+      const card = document.createElement('div');
+      card.className = 'barang';
+      card.id = 'kartu-' + b.kode;
+      card.innerHTML = `
+        <div class="emoji">${b.emoji}</div>
+        <div class="nama">${b.nama}</div>
+        <div class="harga">${rupiah(b.harga)}</div>
+        <div class="stepper">
+          <button id="minus-${b.kode}" onclick="ubahQty('${b.kode}', -1)" disabled>&minus;</button>
+          <span class="qty" id="qty-${b.kode}">0</span>
+          <button onclick="ubahQty('${b.kode}', 1)">+</button>
+        </div>`;
+      el.appendChild(card);
+    });
+  }
+
+  function ubahQty(kode, delta) {
+    qty[kode] = Math.max(0, qty[kode] + delta);
+    document.getElementById('qty-' + kode).textContent = qty[kode];
+    document.getElementById('minus-' + kode).disabled = qty[kode] === 0;
+    document.getElementById('kartu-' + kode).classList.toggle('aktif', qty[kode] > 0);
+    perbaruiTotal();
+  }
+
+  function totalSementara() {
+    return katalog.reduce((sum, b) => sum + b.harga * (qty[b.kode] || 0), 0);
+  }
+
+  function perbaruiTotal() {
+    const total = totalSementara();
+    document.getElementById('total-sementara').textContent = rupiah(total);
+    document.getElementById('btn-proses').disabled = total === 0;
+  }
+
+  function setUang(nilai) {
+    const input = document.getElementById('bayar');
+    input.value = nilai === 'pas' ? totalSementara() : nilai;
+  }
+
+  // --- proses pembayaran: jalankan proses Camunda ---
+  async function proses() {
+    const items = {};
+    katalog.forEach(b => { if (qty[b.kode] > 0) items[b.kode] = qty[b.kode]; });
+    const bayar = Number(document.getElementById('bayar').value || 0);
+
+    const btn = document.getElementById('btn-proses');
+    btn.disabled = true;
+    btn.textContent = 'Memproses...';
+
+    try {
+      const res = await fetch('/api/warung/hitung', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, bayar })
+      });
+      const data = await res.json();
+      tampilkanStruk(res.ok, data);
+    } catch (e) {
+      tampilkanStruk(false, { error: 'Tidak bisa menghubungi server.' });
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Proses Pembayaran';
+    }
+  }
+
+  function tampilkanStruk(ok, data) {
+    const panel = document.getElementById('panel-hasil');
+    const struk = document.getElementById('struk');
+    const catatan = document.getElementById('catatan');
+    panel.classList.remove('sembunyi');
+
+    if (!ok) {
+      struk.innerHTML = '';
+      catatan.innerHTML = `<div class="catatan error">⚠️ ${data.error || 'Terjadi kesalahan.'}</div>`;
+      return;
+    }
+
+    let baris = '';
+    data.detail.forEach(d => {
+      baris += `<div class="baris">
+        <span>${d.nama}</span>
+        <span class="kanan">${d.qty} x ${rupiah(d.harga)} = ${rupiah(d.subtotal)}</span>
+      </div>`;
+    });
+
+    const cukup = data.status === 'CUKUP';
+    struk.innerHTML = `
+      <h3>WARUNG SEJAHTERA</h3>
+      <div class="sub">Jl. Merdeka No. 1 • Terima kasih 🙏</div>
+      ${baris}
+      <div class="garis"></div>
+      <div class="baris total"><span>TOTAL</span><span>${rupiah(data.total)}</span></div>
+      <div class="baris"><span>BAYAR</span><span>${rupiah(data.bayar)}</span></div>
+      <div class="baris kembalian">
+        <span>KEMBALIAN</span>
+        <span class="kembalian-nilai ${data.kembalian >= 0 ? 'positif' : 'negatif'}">${rupiah(data.kembalian)}</span>
+      </div>
+      <div class="garis"></div>
+      <div class="baris"><span>STATUS</span><span class="badge ${cukup ? 'cukup' : 'kurang'}">${data.status}</span></div>`;
+
+    if (cukup) {
+      catatan.innerHTML = `<div class="catatan task">
+        ✅ Pembayaran cukup. Proses Camunda berhenti di task <b>"${data.task}"</b>.<br>
+        Buka <a href="/camunda/app/tasklist" target="_blank">Camunda Tasklist</a> (login <b>demo/demo</b>)
+        lalu klik <b>Complete</b> untuk menyelesaikan transaksi.</div>`;
+    } else {
+      catatan.innerHTML = `<div class="catatan error">
+        ❌ Uang kurang ${rupiah(Math.abs(data.kembalian))}. Transaksi dibatalkan oleh proses Camunda.</div>`;
+    }
+  }
+</script>
+
+</body>
+</html>

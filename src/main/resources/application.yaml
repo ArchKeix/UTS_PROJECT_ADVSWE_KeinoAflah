@@ -1,0 +1,27 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: hellocamunda
+  datasource:
+    url: jdbc:h2:mem:hellocamunda;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  h2:
+    console:
+      enabled: true
+
+camunda:
+  bpm:
+    # Default History Time To Live agar semua diagram BPMN bisa di-deploy
+    generic-properties:
+      properties:
+        history-time-to-live: 7
+    # User default untuk login ke Camunda Webapp
+    admin-user:
+      id: demo
+      password: demo
+      firstName: Demo
+      lastName: User
